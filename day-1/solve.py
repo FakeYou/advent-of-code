@@ -1,3 +1,5 @@
+# http://adventofcode.com/day/1
+
 input = open('input.txt').read()
 
 def part1(input):
