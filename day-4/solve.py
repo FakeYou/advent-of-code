@@ -1,4 +1,5 @@
 import hashlib
+import time
 
 input = 'bgvyzdsv'
 
@@ -10,7 +11,7 @@ def part1(input):
 
         # return the 'input' + index when the hash starts with '00000'
         if hash[0:5] == "00000":
-            return input + str(i)
+            return i
 
 def part2(input):
     # bruteforce md5 hashes
@@ -18,13 +19,18 @@ def part2(input):
         # create a md5 hash with the 'input' + index
         hash = hashlib.md5((input + str(i)).encode('utf-8')).hexdigest()
 
-        if i % 1000000 is 0:
-            print(i)
-
         # return the 'input' + index when the hash starts with '000000'
         if hash[0:6] == "000000":
-            return input + str(i)
+            return i
 
+print("Input: %s" % input)
+print("---")
+
+start = time.time()
 print("Solution to part 1: %s" % part1(input))
+print("Duration: %s seconds" % str(time.time() - start))
+
+start = time.time()
 print("Solution to part 2: %s" % part2(input))
+print("Duration: %s seconds" % str(time.time() - start))
 
