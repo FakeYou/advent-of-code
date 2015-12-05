@@ -8,18 +8,17 @@ def part1(packages):
 
     for package in packages:
         # get the length, width and height as ints from the package
-        (l, w, h) = map(int, package.split('x'))
+        (l, w, h) = map(int, package.split('x')) 
 
-        # get the size of all surfaces
+        # calculate the size of all surfaces
         surfaces = [l*w*2, w*h*2, h*l*2]
-
-        # sort the surfaces from smallest to largest so we can duplicate the smallest
+        
+        # sort from smallest to largest surface
+        # then add half of the smallest surface as padding
         surfaces.sort()
-
-        # add half of the smallest surface as padding
         surfaces.append(surfaces[0] / 2)
-
-        # add the sum of all the surfaces to the totla
+        
+        # add the sum of all the surfaces to the total
         total += sum(surfaces)
 
     return total
