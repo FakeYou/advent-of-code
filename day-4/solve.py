@@ -1,3 +1,5 @@
+# http://adventofcode.com/day/4
+
 import hashlib
 import time
 
