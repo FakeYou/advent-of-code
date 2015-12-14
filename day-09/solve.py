@@ -70,49 +70,41 @@ def getPermutations(array):
 
     return permute(array)
 
-def part1(routes):
-    shortestDistance = sys.maxsize;
-
-    graph = getGraph(routes)
+# get the distance of every permutation of a graph 
+def getGraphDistances(graph):
+    distances = []
     permutations = getPermutations(list(graph))
 
     # loop through every permutation and calculate the total distance
     for permutation in permutations:
         distance = 0
 
-        # add the distance between every location
+        # add the distance between every person
         for i in range(0, len(permutation) - 1):
             (start, end) = permutation[i:i + 2]
 
             distance += graph[start][end]
 
-        # save the shortest distance
-        if distance < shortestDistance:
-            shortestDistance = distance
+        distances.append(distance)
 
-    return shortestDistance
+    return distances
+
+
+def part1(routes):
+    graph = getGraph(routes)
+
+    distances = getGraphDistances(graph)
+    distances.sort()
+
+    return distances[0]
 
 def part2(routes):
-    longestDistance = -1;
-
     graph = getGraph(routes)
-    permutations = getPermutations(list(graph))
 
-    # loop through every permutation and calculate the total distance
-    for permutation in permutations:
-        distance = 0
+    distances = getGraphDistances(graph)
+    distances.sort()
 
-        # add the distance between every location
-        for i in range(0, len(permutation) - 1):
-            (start, end) = permutation[i:i + 2]
-
-            distance += graph[start][end]
-
-        # save the longest distance
-        if distance > longestDistance:
-            longestDistance = distance
-
-    return longestDistance
+    return distances[-1]
 
 start = time.time()
 print("Solution to part 1: %s" % part1(routes))
