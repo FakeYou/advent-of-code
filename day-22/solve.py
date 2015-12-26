@@ -2,129 +2,175 @@
 
 import sys
 import time
+import random
 import itertools
 from pprint import pprint
 
-player = { 'hitpoints': 50, 'damage': 0, 'armour': 0, 'mana': 500 }
-boss = { 'hitpoints': 55, 'damage': 8, 'armour': 0 }
+PLAYER_HP      = 0
+PLAYER_MANA    = 1
+BOSS_HP        = 2
+BOSS_DAMAGE    = 3
+TOTAL_MANA     = 4
+SHIELD_TIMER   = 5
+POISON_TIMER   = 6
+RECHARGE_TIMER = 7
+CURSE_DAMAGE   = 8
 
-spellbook = {
-    'magic missile': { 'name': 'magic missile', 'cost': 53, 'damage': 4 },
-    'drain': { 'name': 'drain', 'cost': 73, 'damage': 2, 'health': 2 },
-    'shield': { 'name': 'shield', 'cost': 113, 'effect': { 'name': 'shield', 'armour': 7, 'turns': 6 } },
-    'poison': { 'name': 'poison', 'cost': 173, 'effect': { 'name': 'poison', 'damage': 3, 'turns': 6 } },
-    'recharge': { 'name': 'recharge', 'cost': 229, 'effect': { 'name': 'recharge', 'mana': 101, 'turns': 5 } }
-}
-
-effects = {}
-
-# simulate a fight between the player and an enemy
-# returns True when the player wins
-def fight(player, spells, enemy):
-    totalManaCost = 0
-
-    for turn in range(1000):
-        player['armour'] = 0
-        # print('-- Turn %d --' % turn)
-        # print('- Player has %d hit points, %d armour, %d mana' % (player['hitpoints'], player['armour'], player['mana']))
-        # print('- Enemy has %d hit points' % boss['hitpoints'])
-
-        # print('-- Effects --')
-        for effect in list(effects.values()):
-            if 'armour' in effect:
-                player['armour'] = effect['armour']
-                # print('%s adds %d armour' % (effect['name'], effect['armour']))
-
-            if 'damage' in effect:
-                enemy['hitpoints'] -= max(1, effect['damage'] - enemy['armour'])
-                # print('%s deals %d damage' % (effect['name'], max(1, effect['damage'] - enemy['armour'])))
-
-            if 'mana' in effect:
-                # print('%s adds %d mana' % (effect['name'], effect['mana']))
-                player['mana'] += effect['mana']
-
-            effect['turns'] -= 1
-            # print('%s\'s timer is %s' % (effect['name'], effect['turns']))
-
-            if effect['turns'] == 0:
-                del effects[effect['name']]
-
-        if enemy['hitpoints'] <= 0:
-            # print('player wins')
-            return totalManaCost
-        if player['hitpoints'] <= 0:
-            # print('enemy wins')
-            return -1
-
-        if turn % 2 == 0:
-            # print('-- Player turn --')
-            if len(spells) == 0:
-                # print('enemy wins')
-                return -1
-
-            spell = spells.pop()
-
-            if player['mana'] < spell['cost'] or ('effect' in spell and spell['effect']['name'] in effects):
-                # print('enemy wins')
-                return -1
-
-            # print(['spell', spell['name']])
-            # print(['effects', effects])
-
-            # print('player casts %s' % spell['name'])
-
-            player['mana'] -= spell['cost']
-            totalManaCost += spell['cost']
-
-            if 'damage' in spell:
-                enemy['hitpoints'] -= max(1, spell['damage'] - enemy['armour'])
-                # print('player deals %d damage' % (max(1, enemy['damage'] - player['armour'])))
-
-            if 'health' in spell:
-                player['hitpoints'] += spell['health']
-                # print('player heals %d healt' % spell['health'])
-
-            if 'effect' in spell:
-                effects[spell['effect']['name']] = spell['effect'].copy()
-        else:
-            # print('-- Enemy turn --')
-            player['hitpoints'] -= max(1, enemy['damage'] - player['armour'])
-            # print('enemy deals %d damage' % (max(1, enemy['damage'] - player['armour'])))
-
-        if enemy['hitpoints'] <= 0:
-            # print('player wins')
-            return totalManaCost
-        if player['hitpoints'] <= 0:
-            # print('enemy wins')
-            return -1
-
-        # print('')
-
-spells = [
-    spellbook['magic missile'],
-    spellbook['poison'],
-    spellbook['drain'],
-    spellbook['shield'],
-    spellbook['recharge'],
+begin = [
+    50,     # player hp
+    500,    # player mana
+    55,     # boss hp
+    8,      # boss damage
+    0,      # total mana cost
+    0,      # shield timer
+    0,      # poison timer
+    0,      # recharge timer
+    0       # curse damage
 ]
-# print(fight(player.copy(), spells, boss.copy()))
 
-def part1(player, boss):
-    spell_combinations = itertools.product(list(spellbook.values()), repeat=11)
-    lowestManaCost = sys.maxsize
+costs = { 'm': 53, 'd': 73, 's': 113, 'p': 173, 'r': 229 }
 
-    print(len(list(spell_combinations)))
+global lowest_mana_cost
+lowest_mana_cost = sys.maxsize
 
-    for spells in spell_combinations:
-        cost = fight(player.copy(), list(spells), boss.copy())
+def effects(status):
+    if status[POISON_TIMER] > 0:
+        status[BOSS_HP] -= 3
 
-        if cost is not -1:
-            if cost < lowestManaCost:
-                pprint(list(spells))
-                print(cost)
-                print('---')
-            lowestManaCost = min(lowestManaCost, cost)
+    if status[RECHARGE_TIMER] > 0:
+        status[PLAYER_MANA] += 101
 
-    print(lowestManaCost)
+    status[SHIELD_TIMER] = max(0, status[SHIELD_TIMER] - 1)
+    status[POISON_TIMER] = max(0, status[POISON_TIMER] - 1)
+    status[RECHARGE_TIMER] = max(0, status[RECHARGE_TIMER] - 1)
 
-part1(player, boss)
+# method to simulate one round of attacks, one turn for the player
+# and one turn for the boss
+# return a tuple of (Boolean, Array)
+#
+# the boolean indicates wether the fight was won or lost (True or False)
+# when it it is None then the fight didn't finish yet
+#
+# The array is the status of the fight after this round
+def round(spell, status):
+    # -- Player turn --
+
+    status[PLAYER_HP] -= status[CURSE_DAMAGE]
+    if status[PLAYER_HP] <= 0:
+        return (False, status)
+
+    # apply effects before casting a spell
+    effects(status)
+
+    if status[BOSS_HP] <= 0:
+        return (True, status)
+
+    # make sure that the player has enough mana
+    if costs[spell] > status[PLAYER_MANA]:
+        return (False, status)
+
+    status[PLAYER_MANA] -= costs[spell]
+    status[TOTAL_MANA] += costs[spell]
+
+    # 'Magic missile' instantly does 4 damage
+    if spell == 'm':
+        status[BOSS_HP] -= 4
+    # 'Drain' instantly does 2 damage and heals 4 hp
+    if spell == 'd':
+        status[BOSS_HP] -= 2
+        status[PLAYER_HP] += 2
+    # 'Shield' creates a magic shield giving +7 armour for 6 turns 
+    if spell == 's':
+        status[SHIELD_TIMER] = 6
+    # 'Poison' poisons the enemy dealing 3 damage every turn for 6 turns
+    if spell == 'p':
+        status[POISON_TIMER] = 6
+    # 'Recharge' gives 101 mana every turn for 5 turns
+    if spell == 'r':
+        status[RECHARGE_TIMER] = 5
+
+    if status[BOSS_HP] <= 0:
+        return (True, status)
+
+    # -- Boss turn --
+
+    # apply effects before attacking
+    effects(status)
+
+    if status[BOSS_HP] <= 0:
+        return (True, status)
+
+    # if the 'Shield' effect is active then the player gains 7 armour
+    shield = 7 if status[SHIELD_TIMER] > 0 else 0
+    status[PLAYER_HP] -= max(1, status[BOSS_DAMAGE] - shield)
+
+    if status[PLAYER_HP] <= 0:
+        return (False, status)
+
+    return (None, status)
+
+# recursive function to find the cheapest winning combination of spells
+# it will simulate one round of fight with each possible spell and save the 
+# status. Then it will call itself with the list of previous spells and the new 
+# status. When the fight is won it checks the total mana cost
+def fight(spells, status):
+    global lowest_mana_cost
+
+    # branch for every spell in the spellbook
+    # r: Recharge, p: Poison, s: Shield, m: Magic Missile, d: Drain
+    for spell in 'rpsmd':
+        _status = status.copy()
+
+        # skip when the spell is too expensive even after a mana boost
+        if costs[spell] > _status[PLAYER_MANA] + 110:
+            continue
+        # skip Shield spell if the shield effect is still active
+        if spell == 's' and _status[SHIELD_TIMER] > 1:
+            continue
+        # skip Poison spell if the poison effect is still active
+        if spell == 'p' and _status[POISON_TIMER] > 1:
+            continue
+        # skip Recharge spell if the recharge effect is still active
+        if spell == 'r' and _status[RECHARGE_TIMER] > 1:
+            continue
+
+        (finished, new_status) = round(spell, _status)
+
+        # if this branch is already more expensive than the cheapest one then 
+        # don't bother simulating any further
+        if new_status[TOTAL_MANA] > lowest_mana_cost:
+            continue
+
+        # save the lowest mana cost after the fight is won
+        if finished is True:
+            lowest_mana_cost = min(lowest_mana_cost, new_status[TOTAL_MANA])
+        # recurse if the fight isn't decided yet
+        if finished is None:
+            fight(spells + spell, new_status)
+
+def part1(begin):
+    global lowest_mana_cost
+    lowest_mana_cost = sys.maxsize
+
+    fight('', begin)
+
+    return lowest_mana_cost
+
+def part2(begin):
+    global lowest_mana_cost
+    lowest_mana_cost = sys.maxsize
+
+    begin = begin.copy()
+    begin[CURSE_DAMAGE] = 1
+
+    fight('', begin)
+
+    return lowest_mana_cost
+
+start = time.time()
+print("Solution to part 1: %s" % part1(begin))
+print("Duration: %s seconds" % str(time.time() - start))
+
+start = time.time()
+print("Solution to part 2: %s" % part2(begin))
+print("Duration: %s seconds" % str(time.time() - start))
