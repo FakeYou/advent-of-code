@@ -1,7 +1,9 @@
 # [Advent of Code](http://adventofcode.com/)
 
 ```
-                        *
+                        |
+                       \|/
+                      --*--
                        >o<
                       >>*<<
                      >@>O<<<
